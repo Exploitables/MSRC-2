@@ -1,2 +1,17 @@
-# MSRC-2
- MSRC-2 proof-of-concept.
+# MSRC Case 2
+ This case has been closed by Microsoft, and a servicing update will not be issued for the vulnerability. These cases are first submitted to the Zero Day Initiative, and upon a case closure, are then submitted to Microsoft.
+ 
+# Case Report
+ This report was originally sent to the Zero Day Initiative, and was not acquired by the ZDI. The formatting is that of Zero Day Initiative case reports.
+
+1.	Microsoft Windows Azure VFP Extension RtlStringCbLengthW Null Pointer Dereference Denial of Service Vulnerability
+
+2.	A vulnerability exists in Microsoft Windows that allows an attacker to cause a system-wide denial of service via sending specially crafted requests to the Azure VFP Extension device driver. An attacker can effectively shut down the system, denying access to other users. An attacker must have low-privileged access on the system to exploit the vulnerability.
+
+3.	Microsoft Windows 10 Pro Version 21H2 (OS Build 19044.1288), Microsoft Azure VFP Extension 'vfpext.sys' File version 10.0.19041.593, Product version 10.0.19041.593
+
+4.	The root cause of this vulnerability stems from the driver not checking if a pointer is valid or not prior to using it. To interact with this device driver, a handle to the device object must be obtained. In this scenario, the device object that a handle is needed for is '\\.\GLOBALROOT\Device\VfpExt'. Triggering the vulnerability requires that the attacker sends an IO control code request to the device driver, using this handle, with the IO control code supplied being 3 (0x3). As for the input and output buffers, a size of 536 (0x218) must be supplied, or the vulnerability cannot be triggered. From here, the function 'RtlStringCbLengthW' can be called, working with the 'rcx' register, which was prepared previously. The contents of the 'rcx' register cannot be zero, otherwise we will take a different branch. Assuming the 'rcx' register contains a value that is non-zero, the contents of the 'rdx' cannot be zero, either. A means of controlling these two registers are currently unknown. After the check fails, (registers 'rdx' and 'rcx' contains non-zero values), the machine crashes at the following `cmp` instruction, comparing the 16-bit integer pointed to by the 'rcx' register with another 16-bit integer stored in the lowest 16-bits of the 'r10' register. Because the 'rcx' register is pointing to unmapped data, and there are no try-catches in this situation, the system crashes. There are no other potential outcomes by abusing this vulnerability, as the crashing function has no other interesting code-paths. Additionally, this function is for the manipulation of strings with no interesting artifacts in this regard. This can be used as a system-wide denial of service, against systems with this service enabled. A solution to this vulnerability is to probe the address with a structured exception handler (SEH) to validate the word-pointer.
+
+5.	The proof-of-concept solution has been provided in the attached zip. The Azure VFP Extension device driver does not run on Windows by default, and thus must be started manually. To start this device driver, install Process Hacker 2 (https://sourceforge.net/projects/processhacker/files/processhacker2/processhacker-2.39-setup.exe/download), and traverse to the "Services" tab at the top of the Process Hacker window. From here, search for the device driver name "VfpExt" and the driver will appear. Right click the device driver and click "Start" to start the service. The only step afterwards is to execute the proof-of-concept code on the machine.
+
+6.	Microsoft Windows 10 Download Link: https://www.microsoft.com/en-us/software-download/windows10
